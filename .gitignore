@@ -1,0 +1,15 @@
+# Byte-compiled / package files
+__pycache__/
+*.py[cod]
+
+# Virtual-env
+eeg-env/
+
+# Logs / data
+eeg_stream.csv
+*.log
+
+# IDE / OS cruft
+.vscode/
+.DS_Store
+Thumbs.db

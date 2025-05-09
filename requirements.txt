@@ -1,0 +1,6 @@
+brainflow==5.16.0
+numpy
+scipy
+sounddevice
+mne
+matplotlib
