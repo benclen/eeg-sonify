@@ -5,8 +5,11 @@ __pycache__/
 # Virtual-env
 eeg-env/
 
+# Archive
+archive/
+
 # Logs / data
-eeg_stream.csv
+*.csv
 *.log
 
 # IDE / OS cruft

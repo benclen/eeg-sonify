@@ -5,10 +5,13 @@ import numpy as np
 import sounddevice as sd
 
 from config import Config
-from acquire import RingBuffer, AcquisitionThread
+from acquire import (
+    RingBuffer,
+    AcquisitionThread,      # live
+    FileAcquisitionThread,  # file
+)
 from processing import PowerMatrix, ProcessingThread
 from synth import Sonifier
-
 
 def pick_device(name_substr: str | None, host: str):
     hostapis = sd.query_hostapis()
@@ -25,35 +28,49 @@ def pick_device(name_substr: str | None, host: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Real‑time EEG → Audio sonification")
-    parser.add_argument("--serial", default=Config.SERIAL_PORT)
+    parser = argparse.ArgumentParser(description="EEG → Audio sonification")
+    parser.add_argument("--mode", choices=("live", "file"), default="live",
+                        help="live = Cyton via BrainFlow (default); "
+                             "file = replay OpenBCI CSV")
+    parser.add_argument("--serial", default=Config.SERIAL_PORT,
+                        help="COM port for Cyton when --mode live")
+    parser.add_argument("--input", help="CSV file path when --mode file")
+    parser.add_argument("--loop", action="store_true",
+                        help="Loop the CSV endlessly")
     args = parser.parse_args()
 
-    # Overwrite config serial if given
-    if args.serial:
-        Config.SERIAL_PORT = args.serial
-
+    # ── choose acquisition source ────────────────────────────────────────── #
     ring = RingBuffer()
+
+    if args.mode == "live":
+        Config.SERIAL_PORT = args.serial
+        acq = AcquisitionThread(ring)
+    else:  # file
+        if not args.input:
+            parser.error("--input required when --mode file")
+        acq = FileAcquisitionThread(
+            ring,
+            filepath=args.input,
+            loop=args.loop,
+            realtime=True,              # keep 250 Hz pacing
+            chunk_size=Config.SAMPLE_RATE // 2,
+        )
+
     power_mat = PowerMatrix()
-    acq = AcquisitionThread(ring)
     proc = ProcessingThread(ring, power_mat)
     synth = Sonifier()
 
-    print("Starting acquisition...")
+    # ── kick everything off ──────────────────────────────────────────────── #
+    print("Starting acquisition…")
     acq.start()
     proc.start()
 
-    # Pick audio output
     device_idx = pick_device(Config.OUTPUT_DEVICE, Config.AUDIO_HOST)
     print(f"Using audio device: {device_idx if device_idx is not None else 'default'}")
 
     def callback(outdata, frames, timeinfo, status):
-        z = power_mat.fetch()  # shape (8, 5)
-        if z.size == 0:
-            outdata[:] = np.zeros_like(outdata)
-            return
-        audio = synth(z, frames)
-        outdata[:] = audio
+        z = power_mat.fetch()          # (8, 5) z-scores 0–1
+        outdata[:] = synth(z, frames) if z.size else np.zeros_like(outdata)
 
     with sd.OutputStream(
         samplerate=Config.FS_AUDIO,
@@ -64,9 +81,9 @@ def main():
         device=device_idx,
         latency='low',
     ):
-        print("Streaming audio…  Press Ctrl‑C to quit.")
+        print("Streaming audio…  Press Ctrl-C to quit.")
         try:
-            while True:
+            while acq.is_alive():
                 time.sleep(0.5)
         except KeyboardInterrupt:
             print("Stopping…")
