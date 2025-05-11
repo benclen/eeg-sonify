@@ -11,7 +11,7 @@ class Config:
 
     # ── Audio I/O (PortAudio) ─────────────────────────────────────
     AUDIO_HOST    = "Windows WASAPI"   # "ASIO" after you install ASIO4ALL
-    OUTPUT_DEVICE = None               # substring match or None for default
+    OUTPUT_DEVICE = "Headphones (Realtek(R) Audio)" # substring match or None for default
     FS_AUDIO      = 48_000             # Hz
     BLOCKSIZE     = 512                # samples per callback
 

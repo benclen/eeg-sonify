@@ -9,7 +9,7 @@ from acquire import (
     RingBuffer,
     AcquisitionThread,      # live
     FileAcquisitionThread,  # file
-)
+    )
 from processing import PowerMatrix, ProcessingThread
 from synth import Sonifier
 
