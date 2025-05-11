@@ -28,12 +28,12 @@ class ProcessingThread(threading.Thread):
         super().__init__(daemon=True)
         self.ring = ring_buffer
         self.pm = power_matrix
-        self._stop = threading.Event()
+        self._stop_event = threading.Event()  # Renamed from _stop
         self._baseline_mu = None
         self._baseline_sigma = None
 
     def stop(self):
-        self._stop.set()
+        self._stop_event.set()
 
     def calibrate(self):
         """Collect baseline for CALIBRATION_SEC seconds (eyes open)."""
@@ -55,7 +55,7 @@ class ProcessingThread(threading.Thread):
             self.calibrate()
 
         samples_needed = Config.SAMPLE_RATE  
-        while not self._stop.is_set():
+        while not self._stop_event.is_set():  # Updated to _stop_event
             chunk = self.ring.get(samples_needed)
             if chunk.size:
                 powers = self._bandpowers(chunk)

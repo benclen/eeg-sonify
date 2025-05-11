@@ -50,7 +50,7 @@ class AcquisitionThread(threading.Thread):
     def __init__(self, ring: RingBuffer):
         super().__init__(daemon=True)
         self.ring = ring
-        self._stop = threading.Event()
+        self._stop_event = threading.Event()  # Renamed from _stop
 
         params = BrainFlowInputParams()
         params.serial_port = Config.SERIAL_PORT
@@ -61,7 +61,7 @@ class AcquisitionThread(threading.Thread):
         self.board.prepare_session()
         self.board.start_stream(45000, "file://eeg_stream.csv:w")
         try:
-            while not self._stop.is_set():
+            while not self._stop_event.is_set():  # Updated to _stop_event
                 data = self.board.get_current_board_data(int(Config.SAMPLE_RATE // 2))
                 self.ring.push(data[self.eeg_ch, :])
                 time.sleep(0.01)
@@ -70,7 +70,7 @@ class AcquisitionThread(threading.Thread):
             self.board.release_session()
 
     def stop(self):
-        self._stop.set()
+        self._stop_event.set()
 
 
 # ───────────────────────────── CSV playback ───────────────────────────────── #
@@ -97,7 +97,7 @@ class FileAcquisitionThread(threading.Thread):
         self.loop = loop
         self.chunk_size = chunk_size or Config.SAMPLE_RATE // 2  # 125 @ 250 Hz
         self.realtime = realtime
-        self._stop = threading.Event()
+        self._stop_event = threading.Event()  # Renamed from _stop
 
     # ── internal helpers ──────────────────────────────────────────────────── #
 
@@ -125,7 +125,7 @@ class FileAcquisitionThread(threading.Thread):
 
             buf = []  # collects rows until chunk_size reached
             for row in reader:
-                if self._stop.is_set():
+                if self._stop_event.is_set():  # Updated to _stop_event
                     break
                 if not row or row[0].startswith("%"):
                     continue  # skip stray comments in body
@@ -137,7 +137,7 @@ class FileAcquisitionThread(threading.Thread):
                     self._flush(buf)
                     buf = []
             # final partial chunk
-            if buf and not self._stop.is_set():
+            if buf and not self._stop_event.is_set():  # Updated to _stop_event
                 self._flush(buf)
 
     def _flush(self, rows: list[list[float]]):
@@ -148,10 +148,10 @@ class FileAcquisitionThread(threading.Thread):
     # ── public thread interface ───────────────────────────────────────────── #
 
     def run(self):
-        while not self._stop.is_set():
+        while not self._stop_event.is_set():  # Updated to _stop_event
             self._stream_once()
             if not self.loop:
                 break
 
     def stop(self):
-        self._stop.set()
+        self._stop_event.set()
